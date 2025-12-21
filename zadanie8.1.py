@@ -5,9 +5,7 @@ import math
 A = 1/35
 B = 1/10
 xi = 1/17
-epsilon = 1e-4
 s = 2
-
 
 x0 = 0.0
 x_final = math.pi
@@ -32,19 +30,8 @@ def runge_kutta_2step(x, y, h):
     y_new = y + b1 * k1 + b2 * k2
     return y_new
 
-def initial_step_size(s, epsilon):
-    f0 = f(x0, y0)
-    norm_f0 = np.linalg.norm(f0)
-    
-    x_max = max(abs(x0), abs(x_final))
-    delta = (1/x_max)**(s+1) + norm_f0**(s+1)
-    
-    h = (epsilon / delta)**(1/(s+1))
-    return h
 
-
-def solve_with_fixed_step():
-    h = initial_step_size(2, 1e-4)
+def solve_with_fixed_step(h):
     x = x0
     y = y0.copy()
     
@@ -64,6 +51,27 @@ def solve_with_fixed_step():
     return np.array(x_values), np.array(y_values)
 
 
+def estimate_global_error_runge(y_h, y_h2, s):
+    diff = y_h2 - y_h
+
+    R_h2 = diff / (2**s - 1)
+    
+    error_norm = np.linalg.norm(R_h2)
+    
+    return R_h2, error_norm
+
+
+def initial_step_size(s, epsilon):
+    f0 = f(x0, y0)
+    norm_f0 = np.linalg.norm(f0)
+    
+    x_max = max(abs(x0), abs(x_final))
+    delta = (1/x_max)**(s+1) + norm_f0**(s+1)
+    
+    h = (epsilon / delta)**(1/(s+1))
+    return h
+
+
 def exact_solution(x):
     omega = math.sqrt(A * B)
     C1 = B * math.pi
@@ -73,19 +81,30 @@ def exact_solution(x):
     y2 = (-C1 * omega * math.sin(omega * x) + C2 * omega * math.cos(omega * x)) / A
     return np.array([y1, y2])
 
-
 if __name__ == "__main__":
-
-    x_values, y_values = solve_with_fixed_step()
+    print("Initial condition: y1(0) = {:.10f}, y2(0) = {:.10f}".format(y0[0], y0[1]))
+    
+    h = initial_step_size(s, 1e-4)
+    x_h, y_h = solve_with_fixed_step(h)
+    y_final_h = y_h[-1]
     
 
-    y_final = y_values[-1]
+    x_h2, y_h2 = solve_with_fixed_step(h/2)
+    y_final_h2 = y_h2[-1]
+    
+    R_h2, error_norm = estimate_global_error_runge(y_final_h, y_final_h2, s)
+    
+
     exact_final = exact_solution(x_final)
-    error = np.linalg.norm(y_final - exact_final)
+    true_error = np.linalg.norm(y_final_h2 - exact_final)
     
 
-    print(f"Initial condition: y1(0) = {y0[0]:.10f}, y2(0) = {y0[1]:.10f}")
-    print(f"Exact solution:    y1(pi) = {exact_final[0]:.10f}, y2(pi) = {exact_final[1]:.10f}")
-    print(f"Approximate solution: y1(pi) = {y_final[0]:.10f}, y2(pi) = {y_final[1]:.10f}")
-    print(f"Error: {error:.10f}")
-    print(f"Length of the step: h = {initial_step_size(2, 1e-4):.6f}")
+
+    print(f"Approximate solution with h:     y1(pi) = {y_final_h[0]:.10f}, y2(pi) = {y_final_h[1]:.10f}")
+    print(f"Approximate solution with h/2:   y1(pi) = {y_final_h2[0]:.10f}, y2(pi) = {y_final_h2[1]:.10f}")
+    print(f"Runge absolute error: {error_norm:.10f}")
+
+    
+
+    print(f"Exact solution:                  y1(pi) = {exact_final[0]:.10f}, y2(pi) = {exact_final[1]:.10f}")
+    print(f"True error: {true_error:.10f}")
